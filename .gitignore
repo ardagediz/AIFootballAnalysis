@@ -1,8 +1,8 @@
 .env
 __pycache__/
 *.pyc
-training/football-players-detection-1/
 models/
 runs/
 yolov8x.pt
 output_videos/output_video.mp4
+training/football-players-detection-1/
