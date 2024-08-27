@@ -1,5 +1,6 @@
 import pickle
 import cv2
+# part of the OpenCV library
 import numpy as np
 import os
 import sys 

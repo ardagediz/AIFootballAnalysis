@@ -11,8 +11,96 @@ import pandas as pd
 
 class Tracker:
     def __init__(self, model_path):
+        # this is simply the constructor for the class, it is used to initialize the class and set the model path to the model path that is passed in
         self.model = YOLO(model_path) 
+        # the tracker is then initialized to the ByteTrack class from the supervision library
+        # a byte track is a tracker that is used to track objects in a video
         self.tracker = sv.ByteTrack()
+
+    def detect_frames(self, frames):
+        # batch size is set to 20, this is the number of frames that are processed at a time to prevent any errors from occuring with a larger batch size
+        batch_size=20 
+        # detections is a list that is used to store the detections of the objects in the frames
+        detections = [] 
+        # for loop is used to iterate through the frames in the video
+        for i in range(0,len(frames),batch_size):
+            # minimum confidence is set to 0.1, this is the minimum confidence that the model must have to detect an object
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)
+            # the detections are then appended to the detections list
+            detections += detections_batch
+        return detections
+
+
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+
+        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path,'rb') as f:
+                tracks = pickle.load(f)
+            return tracks
+
+        # used to detect the frames
+        detections = self.detect_frames(frames)
+
+        # this is used to store the tracks of the objects
+        tracks={
+            "players":[],
+            "referees":[],
+            "ball":[]
+        }  
+
+        # this is used to 
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v:k for k,v in cls_names.items()}
+            print(cls_names)
+
+            # Covert to supervision Detection format
+            # what this specific line does is that it converts the detection from the ultralytics format to the supervision format
+            # supervisison format is a format that is used to store the detections of the objects in the video
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            # now that we have the detections in the supervision format we can now convert the goalkeeper to a player object
+            # without changing it to supervision format we would not be able to convert the goalkeeper to a player object
+            # the goalkeeper is changed to a player object because the model keeps switching the player and goalkeeper classes likley due to the model not being trained on more data
+            # Convert GoalKeeper to player object
+            for object_ind , class_id in enumerate(detection_supervision.class_id):
+                if cls_names[class_id] == "goalkeeper":
+                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+            
+            # Track objects
+            # the function update_with_detections is used to update the tracker with the detections, it is a function from the supervision library
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+            tracks["players"].append({})
+            tracks["referees"].append({})
+            tracks["ball"].append({})
+
+            # here we are iterating through the detections with tracks and adding the detections to the tracks
+            for frame_detection in detection_with_tracks:
+                # tolist is a function that converts the detection to a list
+                # the framedetection[?] was based off of the output of the detection_with_tracks
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                track_id = frame_detection[4]
+
+                if cls_id == cls_names_inv['player']:
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+                
+                if cls_id == cls_names_inv['referee']:
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
+
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+
+                if cls_id == cls_names_inv['ball']:
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+
+        if stub_path is not None:
+            with open(stub_path,'wb') as f:
+                pickle.dump(tracks,f)
+
+        return tracks
 
     def add_position_to_tracks(sekf,tracks):
         for object, object_tracks in tracks.items():
@@ -37,73 +125,7 @@ class Tracker:
 
         return ball_positions
 
-    def detect_frames(self, frames):
-        batch_size=20 
-        detections = [] 
-        for i in range(0,len(frames),batch_size):
-            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)
-            detections += detections_batch
-        return detections
 
-
-    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
-
-        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
-            with open(stub_path,'rb') as f:
-                tracks = pickle.load(f)
-            return tracks
-
-        detections = self.detect_frames(frames)
-
-        tracks={
-            "players":[],
-            "referees":[],
-            "ball":[]
-        }
-
-        for frame_num, detection in enumerate(detections):
-            cls_names = detection.names
-            cls_names_inv = {v:k for k,v in cls_names.items()}
-            print(cls_names)
-
-            # Covert to supervision Detection format
-            detection_supervision = sv.Detections.from_ultralytics(detection)
-
-            # Convert GoalKeeper to player object
-            for object_ind , class_id in enumerate(detection_supervision.class_id):
-                if cls_names[class_id] == "goalkeeper":
-                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
-            
-            # Track objects
-            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
-
-            tracks["players"].append({})
-            tracks["referees"].append({})
-            tracks["ball"].append({})
-
-            for frame_detection in detection_with_tracks:
-                bbox = frame_detection[0].tolist()
-                cls_id = frame_detection[3]
-                track_id = frame_detection[4]
-
-                if cls_id == cls_names_inv['player']:
-                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
-                
-                if cls_id == cls_names_inv['referee']:
-                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
-
-            for frame_detection in detection_supervision:
-                bbox = frame_detection[0].tolist()
-                cls_id = frame_detection[3]
-
-                if cls_id == cls_names_inv['ball']:
-                    tracks["ball"][frame_num][1] = {"bbox":bbox}
-
-        if stub_path is not None:
-            with open(stub_path,'wb') as f:
-                pickle.dump(tracks,f)
-
-        return tracks
 
     def draw_ellipse(self,frame,bbox,color,track_id=None):
         y2 = int(bbox[3])
