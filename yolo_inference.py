@@ -6,6 +6,10 @@ from ultralytics import YOLO
 # for this project as I used github codespaces due to not having a GPU, and the github student pro membership allows for you to leverage a much stronger machine type
 # I was able to use a much stronger model through stronger compute power allowed though github codespaces
 
+# the first predict was ran using the YOLOv8x model
+# it would have looked like this
+# model = YOLO('yolov8x')
+
 #used to load the model
 model = YOLO('models/best.pt')
 

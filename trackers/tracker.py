@@ -32,8 +32,12 @@ class Tracker:
 
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
-
+        
+        # this is used to read the stub file which is the pkl file that contains the tracks of the objects
+        # tracks of the objects are the detections of the objects in the video
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            # rb is used to read the file in binary mode
+            # we read in binary mode because the file is a pkl file and pkl files are read in binary mode
             with open(stub_path,'rb') as f:
                 tracks = pickle.load(f)
             return tracks
@@ -41,20 +45,23 @@ class Tracker:
         # used to detect the frames
         detections = self.detect_frames(frames)
 
-        # this is used to store the tracks of the objects
+        # this is used to store the tracks of the objects in the video
         tracks={
             "players":[],
             "referees":[],
             "ball":[]
         }  
 
-        # this is used to 
+        # here we're 
         for frame_num, detection in enumerate(detections):
             cls_names = detection.names
+            # this is used to instead of having a key value of {0:player}, have a mappingf of {player:0}
+            # this is done for convenience of finding the class id of the object
             cls_names_inv = {v:k for k,v in cls_names.items()}
             print(cls_names)
 
             # Covert to supervision Detection format
+
             # what this specific line does is that it converts the detection from the ultralytics format to the supervision format
             # supervisison format is a format that is used to store the detections of the objects in the video
             detection_supervision = sv.Detections.from_ultralytics(detection)
@@ -62,15 +69,20 @@ class Tracker:
             # now that we have the detections in the supervision format we can now convert the goalkeeper to a player object
             # without changing it to supervision format we would not be able to convert the goalkeeper to a player object
             # the goalkeeper is changed to a player object because the model keeps switching the player and goalkeeper classes likley due to the model not being trained on more data
+
             # Convert GoalKeeper to player object
             for object_ind , class_id in enumerate(detection_supervision.class_id):
                 if cls_names[class_id] == "goalkeeper":
                     detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+                    # replaces class id of goalkeeper with class id of player
             
             # Track objects
             # the function update_with_detections is used to update the tracker with the detections, it is a function from the supervision library
+            # this is used to update the tracker with the changes in the detections e.g the goalkeeper being changed to a player object
             detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
 
+            # this is a dictionary of lists that is used to store the tracks of the objects in the video
+            # this is done for convenience of finding the tracks of the objects in the video
             tracks["players"].append({})
             tracks["referees"].append({})
             tracks["ball"].append({})
@@ -79,6 +91,7 @@ class Tracker:
             for frame_detection in detection_with_tracks:
                 # tolist is a function that converts the detection to a list
                 # the framedetection[?] was based off of the output of the detection_with_tracks
+                # here we're extracting the bbox, class id and track id from the detection to store in the tracks
                 bbox = frame_detection[0].tolist()
                 cls_id = frame_detection[3]
                 track_id = frame_detection[4]
