@@ -20,8 +20,8 @@ print('=====================================') # used to separate the results
 for box in results[0].boxes:
     print(box)
 # the for loop above is used to print out the bounding boxes of the objects detected in the video
-# what is display is the xywh of the bounding box, teh confidence, class id and a few other parameters
+# what is display is the xywh of the bounding box, the confidence, class id and a few other parameters
 
-# intitally running this takes much longer as the model must be downloaded and loaded, but after the first run the model is cached and the results are much faster
+# intitially running this takes much longer as the model must be downloaded, but after the first run the model is cached and the results are much faster
 
 # the results are then saved in the runs folder, the first predict is from the first time i ran the model and the second predict is from the second time i ran the model using a further trained model

@@ -2,6 +2,7 @@ from ultralytics import YOLO
 import supervision as sv
 import pickle
 import os
+# sys is used to append the path to the utils folder so that the functions in the utils folder can be used
 import sys
 sys.path.append('../')
 from utils import get_center_of_bbox, get_bbox_width, get_foot_position
@@ -32,7 +33,9 @@ class Tracker:
 
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
-        
+
+
+        # this is used to save the results of the detections so that the model doesnt have to unnecessarily run again
         # this is used to read the stub file which is the pkl file that contains the tracks of the objects
         # tracks of the objects are the detections of the objects in the video
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
@@ -109,8 +112,11 @@ class Tracker:
                 if cls_id == cls_names_inv['ball']:
                     tracks["ball"][frame_num][1] = {"bbox":bbox}
 
+        # if the function parameter is True then the tracks are saved to the stub file
         if stub_path is not None:
+            # wb is used to write the file in binary mode
             with open(stub_path,'wb') as f:
+                # dump is used to write the tracks to the file
                 pickle.dump(tracks,f)
 
         return tracks
@@ -141,15 +147,24 @@ class Tracker:
 
 
     def draw_ellipse(self,frame,bbox,color,track_id=None):
+        # we want to draw an ellipse on the lower half of the bbox
+        # bbox[3] is the y2 coordinate of the bbox
         y2 = int(bbox[3])
+        # this is the x coordinate of the center of the bbox
+        # get_center_of_bbox is a function in the utils folder that is used to get the center of the bbox
         x_center, _ = get_center_of_bbox(bbox)
+        # this is used to work with the radius of the ellipse
         width = get_bbox_width(bbox)
 
+        # .ellipse() is the cv2 function that is used to draw the ellipse
         cv2.ellipse(
             frame,
             center=(x_center,y2),
+            # axes is the major and minor axes of the ellipse
+            # an ellipse as its oval shape has two axes, the major and minor (radius)
             axes=(int(width), int(0.35*width)),
             angle=0.0,
+            # the start angle and end angle are used to create that unfinished look of the ellipse
             startAngle=-45,
             endAngle=235,
             color = color,
@@ -157,6 +172,7 @@ class Tracker:
             lineType=cv2.LINE_4
         )
 
+        # these are used to draw the player id on the ellipse
         rectangle_width = 40
         rectangle_height=20
         x1_rect = x_center - rectangle_width//2
@@ -221,27 +237,33 @@ class Tracker:
         return frame
 
     def draw_annotations(self,video_frames, tracks, team_ball_control):
+        # this is going to be the output video frames once the annotations have been drawn on
         output_video_frames= []
         for frame_num, frame in enumerate(video_frames):
+            # create a copy of the frames as to not modify the original frames
             frame = frame.copy()
 
+            # Get the tracks for the current frame
             player_dict = tracks["players"][frame_num]
             ball_dict = tracks["ball"][frame_num]
             referee_dict = tracks["referees"][frame_num]
 
-            # Draw Players
+            # Draw around the Players
             for track_id, player in player_dict.items():
+                # this is from later on in the project and is used to assign team colors to the players
                 color = player.get("team_color",(0,0,255))
+                # calling the draw_ellipse function to draw the ellipse around the player
                 frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
-
+                
+                # this is used to draw the possession marker around the player if the player has the ball
                 if player.get('has_ball',False):
                     frame = self.draw_traingle(frame, player["bbox"],(0,0,255))
 
-            # Draw Referee
+            # Draw around the Referee
             for _, referee in referee_dict.items():
                 frame = self.draw_ellipse(frame, referee["bbox"],(0,255,255))
 
-            # Draw ball 
+            # Draw around the ball 
             for track_id, ball in ball_dict.items():
                 frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
 
