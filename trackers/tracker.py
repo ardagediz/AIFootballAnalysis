@@ -15,9 +15,11 @@ class Tracker:
         # this is simply the constructor for the class, it is used to initialize the class and set the model path to the model path that is passed in
         self.model = YOLO(model_path) 
         # the tracker is then initialized to the ByteTrack class from the supervision library
-        # a byte track is a tracker that is used to track objects in a video
+        # ByteTracker is a algorithm used to track the obects within the video
+        # tracking is essential as to ensure objects are not lost and redetected as a new object
         self.tracker = sv.ByteTrack()
 
+    # what this function does is that it allows us to work with each frames in the video
     def detect_frames(self, frames):
         # batch size is set to 20, this is the number of frames that are processed at a time to prevent any errors from occuring with a larger batch size
         batch_size=20 
